@@ -9,12 +9,12 @@ var netErr error
 
 func init() {
 
-	// your passworf of redis, set "" as no password
-	DefaultConfig.Password = "123456"
-	DefaultConfig.Database = 10
-	DefaultConfig.PoolMaxIdle = 10
-
-	redis, netErr = Dial(DefaultConfig)
+	config := &Config{
+		Password:    "123456", // your passworf of redis, set "" as no password
+		Database:    10,
+		PoolMaxIdle: 10,
+	}
+	redis, netErr = Dial(config)
 
 	redis.PingOnPool()
 }

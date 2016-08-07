@@ -3,7 +3,7 @@ a redis client for golang
 
 Document
 --------
-- [GoDoc](http://godoc.org/github.com/quorzz/redis-protocol)
+- [GoDoc](http://godoc.org/github.com/quorzz/readgo)
 
 Getting Started
 ------

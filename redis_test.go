@@ -4,22 +4,64 @@ import (
 	"testing"
 )
 
-func TestConnection(t *testing.T) {
+var redis *Redis
+var netErr error
 
-	redis, netErr := Dial(DefaultConfig)
+func init() {
 
-	if netErr != nil {
-		t.Error(netErr)
+	// your passworf of redis, set "" as no password
+	DefaultConfig.Password = "123456"
+	DefaultConfig.Database = 10
+	DefaultConfig.PoolMaxIdle = 10
+
+	redis, netErr = Dial(DefaultConfig)
+
+	redis.PingOnPool()
+}
+
+func TestCommand(t *testing.T) {
+
+	msg, err := redis.Execute("set", "a", "123")
+
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	if ok, err := msg.Bool(); err != nil || !ok {
+		t.FailNow()
 	}
 
-	redis.Execute("set", "a", "123")
-	msg, err := redis.Execute("get", "a")
+	msg, err = redis.Execute("get", "a")
 	if err != nil {
 		t.Error(err)
 	}
 
 	if str, err := msg.String(); err != nil || str != "123" {
 		t.Log(msg)
-		t.Fail()
+		t.FailNow()
+	}
+
+	msg, err = redis.Execute("GET", "90modfsdgp975ksbksgk ")
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if str, err := msg.String(); err != nil {
+		t.Error(err)
+	} else if str != "" {
+		t.Log(str)
+		t.FailNow()
+	}
+}
+
+func TestError(t *testing.T) {
+	msg, err := redis.Execute("INVALID_COMMAND", "bbb009999")
+
+	if err != nil {
+		t.Error(err)
+	} else if !msg.HasError() {
+		t.Log("should be errors here")
+		t.FailNow()
 	}
 }

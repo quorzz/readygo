@@ -21,7 +21,6 @@ func NewConnection(netConn net.Conn) *connection {
 func (conn *connection) Send(args ...interface{}) error {
 
 	rawCmds, err := protocol.PackCommand(args...)
-
 	if err != nil {
 		return err
 	}
@@ -43,6 +42,23 @@ func (conn *connection) Flush() error {
 func (conn *connection) Receive() (*protocol.Message, error) {
 
 	if message, err := protocol.UnpackFromReader(conn.br); err != nil {
+		return nil, err
+	} else {
+		return message, nil
+	}
+}
+
+func (conn *connection) Execute(args ...interface{}) (*protocol.Message, error) {
+
+	if err := conn.Send(args...); err != nil {
+		return nil, err
+	}
+
+	if err := conn.Flush(); err != nil {
+		return nil, err
+	}
+
+	if message, err := conn.Receive(); err != nil {
 		return nil, err
 	} else {
 		return message, nil

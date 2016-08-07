@@ -23,6 +23,7 @@ type Config struct {
 	Database    int
 	Timeout     time.Duration
 	PoolMaxIdle int // 连接池容量
+	PoolChecker func(item interface{}) error
 }
 
 var DefaultConfig = &Config{
@@ -32,6 +33,9 @@ var DefaultConfig = &Config{
 	Database:    0,
 	Timeout:     6 * time.Second,
 	PoolMaxIdle: 0,
+	PoolChecker: func(item interface{}) error {
+		return nil
+	},
 }
 
 func parseConfig(config *Config) {
@@ -50,6 +54,10 @@ func parseConfig(config *Config) {
 	if config.PoolMaxIdle == 0 {
 		config.PoolMaxIdle = DefaultConfig.PoolMaxIdle
 	}
+
+	if nil == config.PoolChecker {
+		config.PoolChecker = DefaultConfig.PoolChecker
+	}
 }
 
 func (r *Redis) newConnection() (*connection, error) {
@@ -58,10 +66,28 @@ func (r *Redis) newConnection() (*connection, error) {
 		return nil, err
 	}
 	conn := NewConnection(netConn)
-	//  "AUTH"
 
-	// "SELECT DATABASE"
+	//  AUTH PASSWORD
+	if "" != r.password {
+		msg, err := conn.Execute("AUTH", r.password)
+		if err != nil {
+			return nil, err
+		}
+		if msg.HasError() {
+			return nil, msg.Error
+		}
+	}
 
+	// SELECT DATABASE
+	if r.database > 0 {
+		msg, err := conn.Execute("SELECT", r.database)
+		if err != nil {
+			return nil, err
+		}
+		if msg.HasError() {
+			return nil, msg.Error
+		}
+	}
 	return conn, nil
 }
 
@@ -84,6 +110,14 @@ func Dial(config *Config) (*Redis, error) {
 	return redis, nil
 }
 
+func (redis *Redis) PingOnPool() {
+	redis.pool.Checker = func(item interface{}) error {
+		conn, _ := item.(*connection)
+		_, err := conn.Execute("PING")
+		return err
+	}
+}
+
 func (redis *Redis) Execute(args ...interface{}) (*protocol.Message, error) {
 
 	item, err := redis.pool.Get()
@@ -94,18 +128,5 @@ func (redis *Redis) Execute(args ...interface{}) (*protocol.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if err := conn.Send(args...); err != nil {
-		return nil, err
-	}
-
-	if err := conn.Flush(); err != nil {
-		return nil, err
-	}
-
-	if message, err := conn.Receive(); err != nil {
-		return nil, err
-	} else {
-		return message, nil
-	}
+	return conn.Execute(args...)
 }
